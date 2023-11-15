@@ -110,13 +110,13 @@ class Observer<TData, TError> extends ChangeNotifier {
   }
 
   /// This is "the" function responsible for fetching the query.
-  void fetch() async {
+  Future<void> fetch() async {
     if (!options.enabled || query.state.isFetching) {
       return;
     }
 
     query.dispatch(DispatchAction.fetch, null);
-    resolver.resolve<TData>(fetcher, onResolve: (data) {
+    await resolver.resolve<TData>(fetcher, onResolve: (data) {
       options.onData?.call(data);
       query.dispatch(DispatchAction.success, data);
       scheduleRefetch();
