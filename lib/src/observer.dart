@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:fquery/src/hooks/use_query.dart';
-import 'dart:async';
+
 import 'query.dart';
-import 'retry_resolver.dart';
 import 'query_client.dart';
+import 'retry_resolver.dart';
+
+typedef QueryFn<TData> = FutureOr<TData> Function();
 
 /// An observer is a class which subscribes to a query and updates its state when the query changes.
 /// It is responsible for fetching the query and updating the cache.
@@ -12,10 +16,10 @@ import 'query_client.dart';
 class Observer<TData, TError> extends ChangeNotifier {
   final QueryKey queryKey;
   final QueryClient client;
-  final Future<TData> Function() fetcher;
+  final QueryFn<TData> fetcher;
   late final Query<TData, TError> query;
 
-  late QueryOptions options;
+  late QueryOptions<TData, TError> options;
   final resolver = RetryResolver();
   Timer? refetchTimer;
 
@@ -23,7 +27,7 @@ class Observer<TData, TError> extends ChangeNotifier {
     this.queryKey,
     this.fetcher, {
     required this.client,
-    required UseQueryOptions options,
+    required UseQueryOptions<TData, TError> options,
   }) {
     query = client.queryCache.build<TData, TError>(
       queryKey: queryKey,
@@ -67,8 +71,8 @@ class Observer<TData, TError> extends ChangeNotifier {
   /// Takes a [UseQueryOptions] and sets the [options] field.
   /// The [DefaultQueryOptions] from the [QueryClient]
   /// is used if a field is not specified.
-  void _setOptions(UseQueryOptions options) {
-    this.options = QueryOptions(
+  void _setOptions(UseQueryOptions<TData, TError> options) {
+    this.options = QueryOptions<TData, TError>(
       enabled: options.enabled,
       refetchOnMount:
           options.refetchOnMount ?? client.defaultQueryOptions.refetchOnMount,
@@ -77,12 +81,14 @@ class Observer<TData, TError> extends ChangeNotifier {
       cacheDuration:
           options.cacheDuration ?? client.defaultQueryOptions.cacheDuration,
       refetchInterval: options.refetchInterval,
+      onData: options.onData,
+      onError: options.onError,
     );
   }
 
   /// This is usually called from the [useQuery] hook
   /// whenever there is any change in the options
-  void updateOptions(UseQueryOptions options) {
+  void updateOptions(UseQueryOptions<TData, TError> options) {
     final refetchIntervalChanged =
         this.options.refetchInterval != options.refetchInterval;
 
@@ -110,10 +116,12 @@ class Observer<TData, TError> extends ChangeNotifier {
     }
 
     query.dispatch(DispatchAction.fetch, null);
-    resolver.resolve(fetcher, onResolve: (data) {
+    resolver.resolve<TData>(fetcher, onResolve: (data) {
+      options.onData?.call(data);
       query.dispatch(DispatchAction.success, data);
       scheduleRefetch();
     }, onError: (error) {
+      options.onError?.call(error as TError);
       query.dispatch(DispatchAction.error, error);
       scheduleRefetch();
     }, onCancel: () {
