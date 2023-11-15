@@ -126,11 +126,16 @@ UseQueryResult<TData, TError> useQuery<TData, TError>(
   useListenable<Observer<TData, TError>>(observer);
 
   useEffect(() {
-    observer.updateOptions(options);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      observer.updateOptions(options);
+    });
     return null;
   }, [observer, options]);
 
   useEffect(() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      observer.initialize();
+    });
     observer.initialize();
     return () {
       observer.destroy();
