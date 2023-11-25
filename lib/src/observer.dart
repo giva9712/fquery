@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:fquery/src/hooks/use_query.dart';
 
 import 'query.dart';
@@ -141,10 +141,12 @@ class Observer<TData, TError> extends ChangeNotifier {
   /// This is called from the [Query] class whenever the query state changes.
   /// It notifies the observers about the change and it also nofities the [useQuery] hook.
   void onQueryUpdated() {
-    notifyListeners();
-    if (query.state.isInvalidated) {
-      fetch();
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      notifyListeners();
+      if (query.state.isInvalidated) {
+        fetch();
+      }
+    });
   }
 
   /// This is called from the [useQuery] hook when the widget is unmounted.
