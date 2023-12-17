@@ -120,6 +120,18 @@ class Observer<TData, TError> extends ChangeNotifier {
 
   /// This is "the" function responsible for fetching the query.
   Future<void> fetch() async {
+    // Postpone if the query data is updated before the refetch interval somehow (e.g. optimistic updates)
+    if (query.state.dataUpdatedAt != null && options.refetchInterval != null) {
+      final isStale = DateTime.now().difference(query.state.dataUpdatedAt!) >
+          options.refetchInterval!;
+      if (!isStale) {
+        final newInterval = options.refetchInterval! -
+            DateTime.now().difference(query.state.dataUpdatedAt!);
+        refetchTimer?.cancel();
+        refetchTimer = Timer(newInterval, fetch);
+        return;
+      }
+    }
     if (!options.enabled || query.state.isFetching) {
       return;
     }
